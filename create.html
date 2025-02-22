@@ -1,14 +1,12 @@
 <!DOCTYPE html>
 <html lang="sv" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Webstay Butikswizard</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <!-- Custom Animations -->
+  <!-- Custom Styles & Animations -->
   <style>
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
@@ -17,34 +15,51 @@
     .animate-fadeIn {
       animation: fadeIn 0.5s ease-out;
     }
+    /* Loader (spinner) */
+    .loader {
+      border-top: 4px solid #3b82f6;
+      border-right: 4px solid transparent;
+      border-radius: 50%;
+      width: 3rem;
+      height: 3rem;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Extra hover effects for store cards */
+    .store-card:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-200">
-  <!-- Custom Alert Container -->
-  <div id="alertMessage" class="fixed top-4 right-4 z-50 p-4 rounded-lg hidden"></div>
+  <!-- Top Right User Info -->
+  <div id="userInfo" class="fixed top-0 right-0 mt-4 mr-4 text-sm text-gray-300"></div>
 
-  <!-- Login Section -->
-  <div id="loginSection" class="min-h-screen flex items-center justify-center">
-    <div class="bg-gray-800 shadow-lg rounded-lg p-8 max-w-md w-full">
-      <h2 class="text-2xl font-bold mb-4 text-center">
-        Logga in för att starta din butikswizard
-      </h2>
-      <div id="g_id_onload"
-           data-client_id="216513476074-2g3ua2sboin4g8f16n8mdf9o2h1tbn0q.apps.googleusercontent.com"
-           data-callback="handleCredentialResponse"
-           data-auto_prompt="true"></div>
-      <div class="g_id_signin" data-type="standard"></div>
+  <!-- Waiting Overlay (shown when user is not logged in) -->
+  <div id="waitingScreen" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex flex-col items-center justify-center z-50 hidden">
+    <div class="text-xl font-semibold mb-4">Väntar på inloggning...</div>
+    <div class="loader"></div>
+  </div>
+
+  <!-- Active Plan Modal (shown if no active plan record is found) -->
+  <div id="activePlanModal" class="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-80 hidden">
+    <div class="bg-white p-8 rounded-lg shadow-2xl text-gray-900 text-center animate-fadeIn">
+      <p class="text-xl font-semibold">Du har ingen aktiv plan.</p>
+      <p class="mt-2">Du loggas ut och omdirigeras...</p>
     </div>
   </div>
 
-  <!-- Butikswizard Section (hidden until login) -->
+  <!-- Main Wizard Section (hidden until user is logged in and active) -->
   <div id="wizard" class="hidden min-h-screen p-4">
     <div class="max-w-3xl mx-auto bg-gray-800 shadow-xl rounded-lg overflow-hidden animate-fadeIn">
       <header class="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 text-center">
         <h1 class="text-3xl font-bold">Skapa Din Butik</h1>
       </header>
       <div class="p-6">
-         <!-- Action Section: Create store form or Upgrade plan -->
+         <!-- Action Section: Create store form or Upgrade plan button -->
          <div id="storeAction" class="mb-6"></div>
          <!-- Store List Section -->
          <h2 class="text-2xl font-semibold mb-4">Mina Butiker</h2>
@@ -53,99 +68,162 @@
     </div>
   </div>
 
-  <!-- JavaScript -->
+  <!-- Custom Alert Container (top-right) -->
+  <div id="alertMessage" class="fixed top-4 right-4 z-50 p-4 rounded-lg hidden"></div>
+
   <script>
     let currentUser = null;
-    // Simulated store limit – non-upgraded users may bara skapa 1 butik
-    let maxStoresAllowed = 1;
+    let loginPopup = null;
 
-    // Custom alert function with dark theme styling and fade-out effect
-    function showAlert(message, type="error") {
+    // Returns the allowed number of stores based on the user's plan.
+    function getStoreLimit(plan) {
+      switch (plan) {
+        case "Start": return 1;
+        case "Premium": return 3;
+        case "Ultimate": return 10;
+        case "Exclusive":
+        case "Owner": return Infinity;
+        default: return 1;
+      }
+    }
+
+    // Update the top-right user info area.
+    function updateUserInfo() {
+      document.getElementById("userInfo").innerHTML = `
+        Inloggad som: <strong>${currentUser.email}</strong>
+        <button onclick="logout()" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition">
+          Logga ut
+        </button>
+      `;
+    }
+
+    // Logout: clear localStorage and reload.
+    function logout() {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+      location.reload();
+    }
+
+    // Show a custom alert (top-right).
+    function showAlert(message, type = "error") {
       const alertDiv = document.getElementById("alertMessage");
-      let bgClass = type === "error" ? "bg-red-600 border-red-800" : "bg-green-600 border-green-800";
+      const bgClass = type === "error" ? "bg-red-600 border-red-800" : "bg-green-600 border-green-800";
       alertDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg border ${bgClass} text-white`;
       alertDiv.textContent = message;
       alertDiv.classList.remove("hidden");
-      setTimeout(() => {
-        alertDiv.classList.add("hidden");
-      }, 4000);
+      setTimeout(() => alertDiv.classList.add("hidden"), 5000);
     }
 
-    // Hjälpfunktion: Avkoda JWT-token
-    function parseJwt(token) {
-      try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(jsonPayload);
-      } catch (e) {
-        console.error("Fel vid avkodning av token:", e);
-        return null;
+    // Show/hide waiting overlay.
+    function showWaitingScreen() { document.getElementById("waitingScreen").classList.remove("hidden"); }
+    function hideWaitingScreen() { document.getElementById("waitingScreen").classList.add("hidden"); }
+
+    // Show the main wizard.
+    function showWizard() { document.getElementById("wizard").classList.remove("hidden"); }
+
+    // Show the active plan modal.
+    function showActivePlanModal() { document.getElementById("activePlanModal").classList.remove("hidden"); }
+    function hideActivePlanModal() { document.getElementById("activePlanModal").classList.add("hidden"); }
+
+    // Open the login popup using your /auth page.
+    function openLoginPopup() {
+      loginPopup = window.open("https://webstay.se/auth", "Login", "width=500,height=600");
+      if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
+    }
+
+    // Listen for messages from the login popup.
+    window.addEventListener("message", function(event) {
+      if (event.origin !== "https://webstay.se") return;
+      const data = event.data;
+      if (data && data.authToken && data.user) {
+        localStorage.setItem("authToken", data.authToken);
+        localStorage.setItem("authUser", JSON.stringify(data.user));
+        currentUser = data.user;
+        updateUserInfo();
+        if (loginPopup) loginPopup.close();
+        hideWaitingScreen();
+        checkActivePlan();
       }
-    }
+    });
 
-    // Google Sign-In callback – vid lyckad inloggning
-    function handleCredentialResponse(response) {
-      console.log("Mottog Google-inloggningsuppgifter.");
-      const payload = parseJwt(response.credential);
-      if (payload) {
-        currentUser = payload;
-        console.log("Inloggad som:", payload.email);
-        // Dölj login-sektionen och visa wizard
-        document.getElementById("loginSection").classList.add("hidden");
-        document.getElementById("wizard").classList.remove("hidden");
-        fetchStores();
-        renderStoreAction();
+    // On page load: if user is logged in, check active plan; else, open login popup.
+    document.addEventListener("DOMContentLoaded", function() {
+      const storedToken = localStorage.getItem("authToken");
+      const storedUser = localStorage.getItem("authUser");
+      if (storedToken && storedUser) {
+        currentUser = JSON.parse(storedUser);
+        updateUserInfo();
+        checkActivePlan();
       } else {
-        showAlert("Kunde inte avkoda Google-token.", "error");
+        showWaitingScreen();
+        openLoginPopup();
+      }
+    });
+
+    // Check if the current user's Google ID exists in the API response.
+    // If not, show modal, logout, and redirect after 1 second.
+    async function checkActivePlan() {
+      try {
+        const res = await fetch("https://api.webstay.se/get-users");
+        const allRecords = await res.json();
+        // Check for any record with matching UserID (ignore StoreID value here).
+        const activePlanRecords = allRecords.filter(record => record.UserID === currentUser.sub);
+        console.log("Active plan records:", activePlanRecords);
+        if (activePlanRecords.length === 0) {
+          showActivePlanModal();
+          setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
+        } else {
+          // Set user's plan from the first record.
+          currentUser.plan = activePlanRecords[0].PlanName || "Start";
+          // Get created stores: each record that has a non-empty StoreID.
+          const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
+          renderStoreAction(storesCreated);
+          displayStores(storesCreated);
+          showWizard();
+        }
+      } catch (error) {
+        console.error("Fel vid kontroll av aktiv plan:", error);
+        showAlert("Fel vid kontroll av aktiv plan.", "error");
       }
     }
 
-    // Rendera åtgärdssektionen – skapa butik eller uppgradera plan
-    function renderStoreAction() {
+    // Render the action section: if created stores are below limit, show form; else, show upgrade button.
+    function renderStoreAction(existingStores) {
       const storeActionDiv = document.getElementById("storeAction");
-      fetch("https://api.webstay.se/get-users")
-        .then(res => res.json())
-        .then(allStores => {
-          const userStores = allStores.filter(store => store.UserID === currentUser.sub && store.StoreID.trim() !== "");
-          storeActionDiv.innerHTML = "";
-          if (userStores.length < maxStoresAllowed) {
-            // Visa formulär för att skapa butik
-            storeActionDiv.innerHTML = `
-              <h2 class="text-xl font-semibold mb-2">Steg 1: Ange Butiksnamn</h2>
-              <form id="createStoreForm" class="flex flex-col gap-4">
-                <input type="text" id="storeName" placeholder="Ange butiksnamn" required 
-                  class="p-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white">
-                <button type="submit" 
-                  class="bg-blue-600 text-white py-3 rounded hover:bg-blue-500 transition transform hover:scale-105">
-                  Skapa butik
-                </button>
-              </form>
-            `;
-            document.getElementById("createStoreForm")
-              .addEventListener("submit", createStore);
-          } else {
-            // Visa knapp för att uppgradera plan
-            storeActionDiv.innerHTML = `
-              <button id="upgradePlanBtn" class="w-full bg-yellow-500 text-white py-3 rounded hover:bg-yellow-600 transition transform hover:scale-105">
-                Uppgradera plan
-              </button>
-            `;
-            document.getElementById("upgradePlanBtn")
-              .addEventListener("click", () => {
-                window.location.href = "https://order.webstay.se/upgrade";
-              });
-          }
-        })
-        .catch(err => {
-          console.error("Fel vid hämtning av butiker:", err);
-          showAlert("Fel vid hämtning av butiker.", "error");
+      const maxStoresAllowed = getStoreLimit(currentUser.plan);
+      storeActionDiv.innerHTML = "";
+      if (existingStores.length < maxStoresAllowed) {
+        storeActionDiv.innerHTML = `
+          <h2 class="text-xl font-semibold mb-2">Steg 1: Ange Butiksnamn</h2>
+          <form id="createStoreForm" class="flex flex-col gap-4">
+            <input type="text" id="storeName" placeholder="Ange butiksnamn" required 
+              class="p-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white">
+            <button type="submit" 
+              class="bg-blue-600 text-white py-3 rounded hover:bg-blue-500 transition transform hover:scale-105">
+              Skapa butik
+            </button>
+          </form>
+          <p class="text-sm text-gray-400 mt-2">
+            Du har skapat ${existingStores.length} av ${maxStoresAllowed === Infinity ? "obegränsat" : maxStoresAllowed} butiker.
+          </p>
+        `;
+        document.getElementById("createStoreForm").addEventListener("submit", createStore);
+      } else {
+        storeActionDiv.innerHTML = `
+          <button id="upgradePlanBtn" class="w-full bg-yellow-500 text-white py-3 rounded hover:bg-yellow-600 transition transform hover:scale-105">
+            Uppgradera plan för att skapa fler butiker
+          </button>
+        `;
+        document.getElementById("upgradePlanBtn").addEventListener("click", () => {
+          window.location.href = "https://order.webstay.se/upgrade";
         });
+      }
     }
 
-    // Hantera skapande av butik
+    // Create store function:
+    // 1. Assign a unique Store ID.
+    // 2. Create the store via the API.
+    // 3. Open Stripe onboarding in a popup window and monitor it.
     async function createStore(e) {
       e.preventDefault();
       const storeName = document.getElementById("storeName").value.trim();
@@ -155,7 +233,7 @@
       }
       console.log("Initierar skapande av butik:", storeName);
       try {
-        // Steg 1: Tilldela ett unikt Store ID
+        // Step 1: Assign a unique Store ID.
         const assignRes = await fetch("https://api.webstay.se/assign-store-id", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -168,7 +246,7 @@
         const storeId = assignData.storeId;
         console.log("Tilldelat Store ID:", storeId);
 
-        // Steg 2: Skapa butiken och initiera Stripe-onboarding
+        // Step 2: Create the store and start Stripe onboarding.
         const createRes = await fetch("https://api.webstay.se/create-store", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -183,38 +261,30 @@
           throw new Error(createData.error || "Misslyckades med att skapa butik");
         }
         console.log("Butik skapad:", storeName);
+        // Step 3: Open Stripe onboarding in a popup window.
         if (createData.onboarding_url) {
-          window.open(createData.onboarding_url, "_blank");
+          let onboardingPopup = window.open(createData.onboarding_url, "StripeOnboarding", "width=600,height=800,scrollbars=yes,resizable=yes");
           console.log("Onboarding-länk öppnad:", createData.onboarding_url);
+          // Monitor the popup every 500ms.
+          let interval = setInterval(() => {
+            if (onboardingPopup.closed) {
+              clearInterval(interval);
+              // Once closed, refresh the view to update payment status.
+              setTimeout(() => {
+                checkActivePlan();
+              }, 2000);
+            }
+          }, 500);
         }
         document.getElementById("storeName").value = "";
-        setTimeout(() => {
-          fetchStores();
-          renderStoreAction();
-        }, 2000);
       } catch (error) {
         console.error("Fel vid skapande av butik:", error.message);
         showAlert("Fel vid skapande av butik: " + error.message, "error");
       }
     }
 
-    // Hämta och visa butiker
-    function fetchStores() {
-      fetch("https://api.webstay.se/get-users")
-        .then(res => res.json())
-        .then(allStores => {
-          const userStores = allStores.filter(store =>
-            store.UserID === currentUser.sub && store.StoreID.trim() !== ""
-          );
-          displayStores(userStores);
-        })
-        .catch(err => {
-          console.error("Fel vid hämtning av butiker:", err);
-          showAlert("Fel vid hämtning av butiker.", "error");
-        });
-    }
-
-    // Rendera butikerna som klickbara kort (hela kortet agerar som en knapp)
+    // Fetch and display stores for the current user.
+    // If a record's StoreID contains commas, split them and display each as a separate card.
     function displayStores(stores) {
       const storeList = document.getElementById("storeList");
       storeList.innerHTML = "";
@@ -222,19 +292,24 @@
         storeList.innerHTML = `<li class="p-4 bg-gray-700 rounded text-center">Inga butiker hittades.</li>`;
       } else {
         stores.forEach(store => {
-          const li = document.createElement("li");
-          li.className = "p-4 bg-gray-700 rounded shadow hover:shadow-lg transition transform hover:scale-105 cursor-pointer";
-          li.onclick = () => {
-            window.location.href = `https://dash.webstay.se/store?${store.StoreID}`;
-          };
-          li.innerHTML = `
-            <div class="font-bold text-lg">Butik: ${store.StoreID}</div>
-            <div class="mt-2 text-sm">
-              <span class="font-medium">Plan:</span> ${store.PlanName || "Ingen plan"}<br>
-              <span class="font-medium">Betalning:</span> ${store.PaymentDate || "Ej registrerad"}
-            </div>
-          `;
-          storeList.appendChild(li);
+          // If StoreID contains a comma, split and render each separately.
+          let storeIDs = store.StoreID.includes(",") ? store.StoreID.split(",") : [store.StoreID];
+          storeIDs.forEach(id => {
+            id = id.trim();
+            const li = document.createElement("li");
+            li.className = "store-card p-4 bg-gray-700 rounded shadow transition-all duration-300 cursor-pointer";
+            li.onclick = () => {
+              window.location.href = `https://dash.webstay.se/?${id}`;
+            };
+            li.innerHTML = `
+              <div class="font-bold text-lg">Butik: ${id}</div>
+              <div class="mt-2 text-sm">
+                <span class="font-medium">Plan:</span> ${store.PlanName || "Ingen plan"}<br>
+                <span class="font-medium">Betalning:</span> ${store.PaymentDate && store.PaymentDate.trim() !== "" ? "Aktiv" : "Ej registrerad"}
+              </div>
+            `;
+            storeList.appendChild(li);
+          });
         });
       }
     }
