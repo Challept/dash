@@ -28,7 +28,19 @@
     }
     .store-card:hover {
       transform: translateY(-4px) scale(1.03);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    .nav-button {
+      margin-left: 0.5rem;
+      padding: 0.5rem 1rem;
+      background-color: #2563eb;
+      color: white;
+      border-radius: 0.375rem;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+    .nav-button:hover {
+      background-color: #1d4ed8;
+      transform: scale(1.03);
     }
   </style>
 </head>
@@ -36,18 +48,18 @@
   <!-- Sidebar -->
   <div class="fixed inset-y-0 left-0 w-64 bg-gray-800 p-6">
     <div class="mb-8">
-      <h2 class="text-2xl font-bold">Dashboard</h2>
+      <h2 class="text-2xl font-bold text-white">Dashboard</h2>
     </div>
     <nav>
       <ul>
         <li class="mb-4">
-          <a href="index.html" class="block py-2 px-4 rounded hover:bg-gray-700">Dashboard</a>
+          <a href="index.html" class="block py-2 px-4 rounded hover:bg-gray-700 text-white">Dashboard</a>
         </li>
         <li class="mb-4">
-          <a href="create.html" class="block py-2 px-4 rounded hover:bg-gray-700">Skapa Butik</a>
+          <a href="create.html" class="block py-2 px-4 rounded hover:bg-gray-700 text-white">Skapa Butik</a>
         </li>
         <li class="mb-4" id="expressDashboardNav" style="display: none;">
-          <button onclick="openExpressDashboard()" class="w-full text-left py-2 px-4 rounded hover:bg-gray-700">
+          <button onclick="openExpressDashboard()" class="w-full text-left py-2 px-4 rounded hover:bg-gray-700 text-white">
             Öppna Express Dashboard
           </button>
         </li>
@@ -95,7 +107,7 @@
       }
     }
 
-    // Update top-right user info.
+    // Update the top-right user info.
     function updateUserInfo() {
       document.getElementById("userInfo").innerHTML = `
         Inloggad som: <strong>${currentUser.email}</strong>
@@ -103,7 +115,7 @@
           Logga ut
         </button>
       `;
-      // Only show Express Dashboard button if stripeAccountId exists.
+      // Show Express Dashboard nav if stripeAccountId exists.
       if (currentUser.stripeAccountId) {
         document.getElementById("expressDashboardNav").style.display = "block";
       } else {
@@ -136,13 +148,13 @@
     function showActivePlanModal() { document.getElementById("activePlanModal").classList.remove("hidden"); }
     function hideActivePlanModal() { document.getElementById("activePlanModal").classList.add("hidden"); }
 
-    // Open login popup.
+    // Open the login popup using your /auth page.
     function openLoginPopup() {
       loginPopup = window.open("https://webstay.se/auth", "Login", "width=500,height=600");
       if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
     }
 
-    // Listen for messages from login popup.
+    // Listen for messages from the login popup.
     window.addEventListener("message", function(event) {
       if (event.origin !== "https://webstay.se") return;
       const data = event.data;
@@ -171,7 +183,8 @@
       }
     });
 
-    // Check active plan: if no record with currentUser.sub, show modal, logout and redirect.
+    // Check if the current user's Google ID exists in the API response.
+    // If not, show modal, logout, and redirect after 1 second.
     async function checkActivePlan() {
       try {
         const res = await fetch("https://api.webstay.se/get-users");
@@ -182,9 +195,8 @@
           showActivePlanModal();
           setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
         } else {
-          // Set user's plan from the first record.
           currentUser.plan = activePlanRecords[0].PlanName || "Start";
-          // Filter records with non-empty StoreID (each may be one or comma-separated IDs).
+          // Filter records with a non-empty StoreID.
           const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
           displayStores(storesCreated);
         }
@@ -194,7 +206,7 @@
       }
     }
 
-    // Display stores; if StoreID contains commas, split them.
+    // Display stores; if StoreID contains commas, split and display each as separate cards.
     function displayStores(stores) {
       const storeList = document.getElementById("storeList");
       storeList.innerHTML = "";
@@ -221,10 +233,10 @@
       }
     }
 
-    // Open Express Dashboard using backend endpoint.
+    // Open Express Dashboard: calls the backend endpoint to get a login link, then opens it in a popup.
     async function openExpressDashboard() {
       if (!currentUser.stripeAccountId) {
-        // Instead of showing error, simply do nothing (or you can show a message).
+        // Do not show an error; you can optionally show a friendly message.
         showAlert("Inget Stripe-konto kopplat till ditt konto.", "error");
         return;
       }
