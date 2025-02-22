@@ -28,7 +28,7 @@
     }
     .store-card:hover {
       transform: translateY(-4px) scale(1.03);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
     .nav-button {
       margin-left: 0.5rem;
@@ -58,9 +58,9 @@
         <li class="mb-4">
           <a href="create.html" class="block py-2 px-4 rounded hover:bg-gray-700 text-white">Skapa Butik</a>
         </li>
-        <li class="mb-4" id="expressDashboardNav" style="display: none;">
-          <button onclick="openExpressDashboard()" class="w-full text-left py-2 px-4 rounded hover:bg-gray-700 text-white">
-            Öppna Express Dashboard
+        <li class="mb-4">
+          <button id="paymentsNav" class="w-full text-left py-2 px-4 rounded hover:bg-gray-700 text-white">
+            Betalningar
           </button>
         </li>
       </ul>
@@ -107,7 +107,7 @@
       }
     }
 
-    // Update the top-right user info.
+    // Update top-right user info.
     function updateUserInfo() {
       document.getElementById("userInfo").innerHTML = `
         Inloggad som: <strong>${currentUser.email}</strong>
@@ -115,15 +115,22 @@
           Logga ut
         </button>
       `;
-      // Show Express Dashboard nav if stripeAccountId exists.
+      // Update the payments button.
+      const paymentsNav = document.getElementById("paymentsNav");
       if (currentUser.stripeAccountId) {
-        document.getElementById("expressDashboardNav").style.display = "block";
+        paymentsNav.textContent = "Betalningar";
+        paymentsNav.disabled = false;
+        paymentsNav.style.opacity = "1";
+        paymentsNav.onclick = openExpressDashboard;
       } else {
-        document.getElementById("expressDashboardNav").style.display = "none";
+        paymentsNav.textContent = "Betalningar (Ej tillgängligt)";
+        paymentsNav.disabled = true;
+        paymentsNav.style.opacity = "0.5";
+        paymentsNav.onclick = null;
       }
     }
 
-    // Logout and reload.
+    // Logout: clear localStorage and reload.
     function logout() {
       localStorage.removeItem("authToken");
       localStorage.removeItem("authUser");
@@ -148,7 +155,7 @@
     function showActivePlanModal() { document.getElementById("activePlanModal").classList.remove("hidden"); }
     function hideActivePlanModal() { document.getElementById("activePlanModal").classList.add("hidden"); }
 
-    // Open the login popup using your /auth page.
+    // Open login popup.
     function openLoginPopup() {
       loginPopup = window.open("https://webstay.se/auth", "Login", "width=500,height=600");
       if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
@@ -184,7 +191,6 @@
     });
 
     // Check if the current user's Google ID exists in the API response.
-    // If not, show modal, logout, and redirect after 1 second.
     async function checkActivePlan() {
       try {
         const res = await fetch("https://api.webstay.se/get-users");
@@ -196,7 +202,6 @@
           setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
         } else {
           currentUser.plan = activePlanRecords[0].PlanName || "Start";
-          // Filter records with a non-empty StoreID.
           const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
           displayStores(storesCreated);
         }
@@ -233,10 +238,9 @@
       }
     }
 
-    // Open Express Dashboard: calls the backend endpoint to get a login link, then opens it in a popup.
+    // Open Express Dashboard: call backend to get a login link and open it in a popup.
     async function openExpressDashboard() {
       if (!currentUser.stripeAccountId) {
-        // Do not show an error; you can optionally show a friendly message.
         showAlert("Inget Stripe-konto kopplat till ditt konto.", "error");
         return;
       }
