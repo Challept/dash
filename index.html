@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Webstay Butikswizard</title>
+  <title>Webstay Dashboard</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Custom Styles & Animations -->
@@ -15,7 +15,6 @@
     .animate-fadeIn {
       animation: fadeIn 0.5s ease-out;
     }
-    /* Loader (spinner) */
     .loader {
       border-top: 4px solid #3b82f6;
       border-right: 4px solid transparent;
@@ -27,46 +26,49 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    /* Extra hover effects for store cards */
     .store-card:hover {
       transform: translateY(-4px) scale(1.03);
       box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
-    /* Navigation buttons styling */
-    .nav-button {
-      margin-left: 0.5rem;
-      padding: 0.5rem 1rem;
-      background-color: #2563eb;
-      color: white;
-      border-radius: 0.375rem;
-      transition: background-color 0.3s ease, transform 0.3s ease;
-    }
-    .nav-button:hover {
-      background-color: #1d4ed8;
-      transform: scale(1.03);
-    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-200">
-
-  <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 right-0 flex items-center justify-between p-4 bg-gray-800 bg-opacity-90 z-50">
-    <div id="userInfo" class="text-sm text-gray-300"></div>
-    <div class="flex items-center">
-      <!-- Button to open Stripe Express Dashboard -->
-      <button id="dashboardBtn" class="nav-button" onclick="openExpressDashboard()">Öppna Express Dashboard</button>
-      <!-- Button to go to store creation page (create.html) -->
-      <a href="create.html" class="nav-button">Skapa Butik</a>
+  <!-- Sidebar -->
+  <div class="fixed inset-y-0 left-0 w-64 bg-gray-800 p-6">
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold">Dashboard</h2>
     </div>
+    <nav>
+      <ul>
+        <li class="mb-4">
+          <a href="index.html" class="block py-2 px-4 rounded hover:bg-gray-700">Dashboard</a>
+        </li>
+        <li class="mb-4">
+          <a href="create.html" class="block py-2 px-4 rounded hover:bg-gray-700">Skapa Butik</a>
+        </li>
+        <li class="mb-4" id="expressDashboardNav" style="display: none;">
+          <button onclick="openExpressDashboard()" class="w-full text-left py-2 px-4 rounded hover:bg-gray-700">
+            Öppna Express Dashboard
+          </button>
+        </li>
+      </ul>
+    </nav>
   </div>
 
-  <!-- Waiting Overlay (shown when user is not logged in) -->
-  <div id="waitingScreen" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex flex-col items-center justify-center z-50 hidden">
+  <!-- Main Content Area -->
+  <div class="ml-64 p-6 pt-20">
+    <div id="userInfo" class="text-right mb-4 text-sm"></div>
+    <h1 class="text-3xl font-bold mb-6">Mina Butiker</h1>
+    <ul id="storeList" class="space-y-4"></ul>
+  </div>
+
+  <!-- Waiting Overlay -->
+  <div id="waitingScreen" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
     <div class="text-xl font-semibold mb-4">Väntar på inloggning...</div>
     <div class="loader"></div>
   </div>
 
-  <!-- Active Plan Modal (shown if no active plan record is found) -->
+  <!-- Active Plan Modal -->
   <div id="activePlanModal" class="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-80 hidden">
     <div class="bg-white p-8 rounded-lg shadow-2xl text-gray-900 text-center animate-fadeIn">
       <p class="text-xl font-semibold">Du har ingen aktiv plan.</p>
@@ -74,23 +76,7 @@
     </div>
   </div>
 
-  <!-- Main Wizard Section (hidden until user is logged in and active) -->
-  <div id="wizard" class="hidden pt-20 pb-8 px-4">
-    <div class="max-w-3xl mx-auto bg-gray-800 shadow-xl rounded-lg overflow-hidden animate-fadeIn">
-      <header class="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 text-center">
-        <h1 class="text-3xl font-bold">Skapa Din Butik</h1>
-      </header>
-      <div class="p-6">
-         <!-- Action Section: Create store form or Upgrade plan button -->
-         <div id="storeAction" class="mb-6"></div>
-         <!-- Store List Section -->
-         <h2 class="text-2xl font-semibold mb-4">Mina Butiker</h2>
-         <ul id="storeList" class="space-y-4"></ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- Custom Alert Container (top-right) -->
+  <!-- Custom Alert Container -->
   <div id="alertMessage" class="fixed top-4 right-4 z-50 p-4 rounded-lg hidden"></div>
 
   <script>
@@ -109,22 +95,30 @@
       }
     }
 
-    // Update the top-right user info area.
+    // Update top-right user info.
     function updateUserInfo() {
       document.getElementById("userInfo").innerHTML = `
         Inloggad som: <strong>${currentUser.email}</strong>
-        <button onclick="logout()" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition">Logga ut</button>
+        <button onclick="logout()" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition">
+          Logga ut
+        </button>
       `;
+      // Only show Express Dashboard button if stripeAccountId exists.
+      if (currentUser.stripeAccountId) {
+        document.getElementById("expressDashboardNav").style.display = "block";
+      } else {
+        document.getElementById("expressDashboardNav").style.display = "none";
+      }
     }
 
-    // Logout: clear localStorage and reload the page.
+    // Logout and reload.
     function logout() {
       localStorage.removeItem("authToken");
       localStorage.removeItem("authUser");
       location.reload();
     }
 
-    // Show a custom alert in the top-right.
+    // Show custom alert.
     function showAlert(message, type = "error") {
       const alertDiv = document.getElementById("alertMessage");
       const bgClass = type === "error" ? "bg-red-600 border-red-800" : "bg-green-600 border-green-800";
@@ -138,20 +132,17 @@
     function showWaitingScreen() { document.getElementById("waitingScreen").classList.remove("hidden"); }
     function hideWaitingScreen() { document.getElementById("waitingScreen").classList.add("hidden"); }
 
-    // Show the main wizard.
-    function showWizard() { document.getElementById("wizard").classList.remove("hidden"); }
-
-    // Show the active plan modal.
+    // Show active plan modal.
     function showActivePlanModal() { document.getElementById("activePlanModal").classList.remove("hidden"); }
     function hideActivePlanModal() { document.getElementById("activePlanModal").classList.add("hidden"); }
 
-    // Open the login popup using your /auth page.
+    // Open login popup.
     function openLoginPopup() {
       loginPopup = window.open("https://webstay.se/auth", "Login", "width=500,height=600");
       if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
     }
 
-    // Listen for messages from the login popup.
+    // Listen for messages from login popup.
     window.addEventListener("message", function(event) {
       if (event.origin !== "https://webstay.se") return;
       const data = event.data;
@@ -166,7 +157,7 @@
       }
     });
 
-    // On page load: if user is logged in, check active plan; otherwise, open login popup.
+    // On page load.
     document.addEventListener("DOMContentLoaded", function() {
       const storedToken = localStorage.getItem("authToken");
       const storedUser = localStorage.getItem("authUser");
@@ -180,8 +171,7 @@
       }
     });
 
-    // Check if the current user's Google ID exists in the API response.
-    // If not, show modal, logout, and redirect after 1 second.
+    // Check active plan: if no record with currentUser.sub, show modal, logout and redirect.
     async function checkActivePlan() {
       try {
         const res = await fetch("https://api.webstay.se/get-users");
@@ -192,11 +182,11 @@
           showActivePlanModal();
           setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
         } else {
+          // Set user's plan from the first record.
           currentUser.plan = activePlanRecords[0].PlanName || "Start";
+          // Filter records with non-empty StoreID (each may be one or comma-separated IDs).
           const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
-          renderStoreAction(storesCreated);
           displayStores(storesCreated);
-          showWizard();
         }
       } catch (error) {
         console.error("Fel vid kontroll av aktiv plan:", error);
@@ -204,97 +194,7 @@
       }
     }
 
-    // Render the action section: if created stores are below limit, show the creation form; otherwise, show an upgrade button.
-    function renderStoreAction(existingStores) {
-      const storeActionDiv = document.getElementById("storeAction");
-      const maxStoresAllowed = getStoreLimit(currentUser.plan);
-      storeActionDiv.innerHTML = "";
-      if (existingStores.length < maxStoresAllowed) {
-        storeActionDiv.innerHTML = `
-          <h2 class="text-xl font-semibold mb-2">Steg 1: Ange Butiksnamn</h2>
-          <form id="createStoreForm" class="flex flex-col gap-4">
-            <input type="text" id="storeName" placeholder="Ange butiksnamn" required 
-              class="p-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white">
-            <button type="submit" 
-              class="bg-blue-600 text-white py-3 rounded hover:bg-blue-500 transition transform hover:scale-105">
-              Skapa butik
-            </button>
-          </form>
-          <p class="text-sm text-gray-400 mt-2">
-            Du har skapat ${existingStores.length} av ${maxStoresAllowed === Infinity ? "obegränsat" : maxStoresAllowed} butiker.
-          </p>
-        `;
-        document.getElementById("createStoreForm").addEventListener("submit", createStore);
-      } else {
-        storeActionDiv.innerHTML = `
-          <button id="upgradePlanBtn" class="w-full bg-yellow-500 text-white py-3 rounded hover:bg-yellow-600 transition transform hover:scale-105">
-            Uppgradera plan för att skapa fler butiker
-          </button>
-        `;
-        document.getElementById("upgradePlanBtn").addEventListener("click", () => {
-          window.location.href = "https://order.webstay.se/upgrade";
-        });
-      }
-    }
-
-    // Create store function: assign a unique Store ID, create the store via the API, and launch Stripe onboarding in a popup window.
-    async function createStore(e) {
-      e.preventDefault();
-      const storeName = document.getElementById("storeName").value.trim();
-      if (!storeName) {
-        showAlert("Ange ett giltigt butiksnamn.", "error");
-        return;
-      }
-      console.log("Initierar skapande av butik:", storeName);
-      try {
-        const assignRes = await fetch("https://api.webstay.se/assign-store-id", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUser.sub })
-        });
-        const assignData = await assignRes.json();
-        if (!assignRes.ok || !assignData.success) {
-          throw new Error(assignData.error || "Misslyckades med att tilldela Store ID");
-        }
-        const storeId = assignData.storeId;
-        console.log("Tilldelat Store ID:", storeId);
-
-        const createRes = await fetch("https://api.webstay.se/create-store", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            store_id: storeId,
-            store_name: storeName,
-            email: currentUser.email
-          })
-        });
-        const createData = await createRes.json();
-        if (!createRes.ok) {
-          throw new Error(createData.error || "Misslyckades med att skapa butik");
-        }
-        console.log("Butik skapad:", storeName);
-        if (createData.onboarding_url) {
-          // Open Stripe Express onboarding in a popup window.
-          let onboardingPopup = window.open(createData.onboarding_url, "StripeOnboarding", "width=600,height=800,scrollbars=yes,resizable=yes");
-          console.log("Onboarding-länk öppnad:", createData.onboarding_url);
-          // Monitor the popup.
-          let interval = setInterval(() => {
-            if (onboardingPopup.closed) {
-              clearInterval(interval);
-              // Once the popup is closed, refresh view (check payment status).
-              setTimeout(() => { checkActivePlan(); }, 2000);
-            }
-          }, 500);
-        }
-        document.getElementById("storeName").value = "";
-      } catch (error) {
-        console.error("Fel vid skapande av butik:", error.message);
-        showAlert("Fel vid skapande av butik: " + error.message, "error");
-      }
-    }
-
-    // Fetch and display stores for the current user.
-    // If a record's StoreID contains commas, split and display each as a separate card.
+    // Display stores; if StoreID contains commas, split them.
     function displayStores(stores) {
       const storeList = document.getElementById("storeList");
       storeList.innerHTML = "";
@@ -302,15 +202,12 @@
         storeList.innerHTML = `<li class="p-4 bg-gray-700 rounded text-center">Inga butiker hittades.</li>`;
       } else {
         stores.forEach(store => {
-          // If StoreID contains a comma, split into multiple store IDs.
           let storeIDs = store.StoreID.includes(",") ? store.StoreID.split(",") : [store.StoreID];
           storeIDs.forEach(id => {
             id = id.trim();
             const li = document.createElement("li");
             li.className = "store-card p-4 bg-gray-700 rounded shadow transition-all duration-300 cursor-pointer";
-            li.onclick = () => {
-              window.location.href = `https://dash.webstay.se/?${id}`;
-            };
+            li.onclick = () => { window.location.href = `https://dash.webstay.se/?${id}`; };
             li.innerHTML = `
               <div class="font-bold text-lg">Butik: ${id}</div>
               <div class="mt-2 text-sm">
@@ -324,10 +221,10 @@
       }
     }
 
-    // Open Express Dashboard: calls the backend API to get a login link and opens it in a popup.
+    // Open Express Dashboard using backend endpoint.
     async function openExpressDashboard() {
-      // We assume that currentUser has a property 'stripeAccountId'
       if (!currentUser.stripeAccountId) {
+        // Instead of showing error, simply do nothing (or you can show a message).
         showAlert("Inget Stripe-konto kopplat till ditt konto.", "error");
         return;
       }
