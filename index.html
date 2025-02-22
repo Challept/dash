@@ -99,7 +99,7 @@
     let currentUser = null;
     let loginPopup = null;
 
-    // Returns allowed number of stores based on plan.
+    // Returns the allowed number of stores based on the user's plan.
     function getStoreLimit(plan) {
       switch (plan) {
         case "Start": return 1;
@@ -111,17 +111,17 @@
       }
     }
 
-    // Update the top-right user info.
+    // Update the top-right user info area and log current user.
     function updateUserInfo() {
+      console.log("Updating user info with:", currentUser);
       document.getElementById("userInfo").innerHTML = `
         Inloggad som: <strong>${currentUser.email}</strong>
         <button onclick="logout()" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition">
           Logga ut
         </button>
       `;
-      // Update payments button.
       const paymentsBtn = document.getElementById("paymentsNav");
-      if (currentUser.stripeAccountId) {
+      if (currentUser.stripeAccountId && currentUser.stripeAccountId.trim() !== "") {
         paymentsBtn.textContent = "Betalningar";
         paymentsBtn.disabled = false;
         paymentsBtn.onclick = openExpressDashboard;
@@ -132,7 +132,7 @@
       }
     }
 
-    // Logout: clear localStorage and reload.
+    // Logout and reload.
     function logout() {
       localStorage.removeItem("authToken");
       localStorage.removeItem("authUser");
@@ -163,7 +163,7 @@
       if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
     }
 
-    // Listen for messages from login popup.
+    // Listen for messages from the login popup.
     window.addEventListener("message", function(event) {
       if (event.origin !== "https://webstay.se") return;
       const data = event.data;
@@ -204,7 +204,6 @@
           setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
         } else {
           currentUser.plan = activePlanRecords[0].PlanName || "Start";
-          // For the dashboard, we display stores from all records with non-empty StoreID.
           const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
           displayStores(storesCreated);
         }
@@ -214,7 +213,7 @@
       }
     }
 
-    // Display stores; if StoreID contains commas, split and display each as a separate card.
+    // Display stores; if StoreID contains commas, split and display each as separate cards.
     function displayStores(stores) {
       const storeList = document.getElementById("storeList");
       storeList.innerHTML = "";
@@ -242,10 +241,10 @@
     }
 
     // Open Express Dashboard:
-    // This calls the backend endpoint to create a login link for the connected Stripe account,
-    // then opens that link in a popup window.
+    // Calls backend endpoint to generate a login link for the connected Stripe account
+    // and opens it in a popup window.
     async function openExpressDashboard() {
-      if (!currentUser.stripeAccountId) {
+      if (!currentUser.stripeAccountId || currentUser.stripeAccountId.trim() === "") {
         showAlert("Inget Stripe-konto kopplat till ditt konto.", "error");
         return;
       }
