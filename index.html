@@ -1,267 +1,294 @@
 <!DOCTYPE html>
-<html lang="sv" class="dark">
+<html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Webstay Dashboard</title>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Custom Styles & Animations -->
   <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    /* Light Mode Styles */
+    body {
+      background-color: #ffffff;
+      color: #333;
+      font-family: sans-serif;
     }
-    .animate-fadeIn {
-      animation: fadeIn 0.5s ease-out;
+    /* Sidebar styling */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 60px;
+      background-color: #f9fafb;
+      border-right: 1px solid #e5e7eb;
+      overflow: hidden;
+      transition: width 0.3s ease;
     }
-    .loader {
-      border-top: 4px solid #3b82f6;
-      border-right: 4px solid transparent;
-      border-radius: 50%;
-      width: 3rem;
-      height: 3rem;
-      animation: spin 1s linear infinite;
+    .sidebar:hover {
+      width: 240px;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .sidebar .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      transition: background-color 0.3s ease;
+      cursor: pointer;
     }
-    .store-card:hover {
-      transform: translateY(-4px) scale(1.03);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    .sidebar .nav-item:hover {
+      background-color: #e5e7eb;
     }
-    .nav-button {
-      margin: 0.5rem 0;
-      padding: 0.5rem 1rem;
+    .sidebar .nav-icon {
+      width: 30px;
+      text-align: center;
+      margin-right: 10px;
+      font-size: 18px;
+      color: #2563eb;
+    }
+    .sidebar .nav-text {
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar:hover .nav-text {
+      opacity: 1;
+    }
+    /* Main content area */
+    .main-content {
+      margin-left: 60px;
+      transition: margin-left 0.3s ease;
+    }
+    .sidebar:hover ~ .main-content {
+      margin-left: 240px;
+    }
+    /* Header styles */
+    header {
+      background-color: #f3f4f6;
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Custom alert modal */
+    .custom-alert {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fef3c7;
+      color: #92400e;
+      padding: 15px;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+    }
+    .custom-alert.show {
+      opacity: 1;
+    }
+    /* Button styling */
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.25rem;
       background-color: #2563eb;
-      color: white;
-      border-radius: 0.375rem;
-      transition: background-color 0.3s ease, transform 0.3s ease;
-      text-align: left;
-      width: 100%;
+      color: #fff;
+      border-radius: 0.5rem;
+      transition: background-color 0.3s, transform 0.3s;
     }
-    .nav-button:hover {
+    .btn:hover {
       background-color: #1d4ed8;
-      transform: scale(1.03);
+      transform: scale(1.05);
     }
-    .nav-button:disabled {
-      opacity: 0.5;
+    .btn:disabled {
+      background-color: #9ca3af;
       cursor: not-allowed;
+      opacity: 0.6;
     }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-200">
+<body>
   <!-- Sidebar -->
-  <div class="fixed inset-y-0 left-0 w-64 bg-gray-800 p-6">
-    <div class="mb-8">
-      <h2 class="text-2xl font-bold text-white">Dashboard</h2>
+  <div class="sidebar">
+    <div class="nav-item" onclick="navigate('dashboard')">
+      <div class="nav-icon"><i class="fas fa-tachometer-alt"></i></div>
+      <div class="nav-text">Dashboard</div>
     </div>
-    <nav>
-      <ul>
-        <li>
-          <a href="index.html" class="nav-button">Dashboard</a>
-        </li>
-        <li>
-          <a href="create.html" class="nav-button">Skapa Butik</a>
-        </li>
-        <li>
-          <button id="paymentsNav" class="nav-button">Betalningar</button>
-        </li>
-      </ul>
-    </nav>
-  </div>
-
-  <!-- Main Content Area -->
-  <div class="ml-64 p-6 pt-20">
-    <div id="userInfo" class="text-right mb-4 text-sm"></div>
-    <h1 class="text-3xl font-bold mb-6">Mina Butiker</h1>
-    <ul id="storeList" class="space-y-4"></ul>
-  </div>
-
-  <!-- Waiting Overlay -->
-  <div id="waitingScreen" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
-    <div class="text-xl font-semibold mb-4">Väntar på inloggning...</div>
-    <div class="loader"></div>
-  </div>
-
-  <!-- Active Plan Modal -->
-  <div id="activePlanModal" class="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-80 hidden">
-    <div class="bg-white p-8 rounded-lg shadow-2xl text-gray-900 text-center animate-fadeIn">
-      <p class="text-xl font-semibold">Du har ingen aktiv plan.</p>
-      <p class="mt-2">Du loggas ut och omdirigeras...</p>
+    <div class="nav-item" onclick="navigate('create')">
+      <div class="nav-icon"><i class="fas fa-store"></i></div>
+      <div class="nav-text">Skapa Butik</div>
+    </div>
+    <div class="nav-item" onclick="navigate('payments')">
+      <div class="nav-icon"><i class="fas fa-credit-card"></i></div>
+      <div class="nav-text">Betalningar</div>
     </div>
   </div>
 
-  <!-- Custom Alert Container -->
-  <div id="alertMessage" class="fixed top-4 right-4 z-50 p-4 rounded-lg hidden"></div>
+  <!-- Main Content -->
+  <div class="main-content min-h-screen">
+    <header>
+      <h1 class="text-2xl font-bold">Webstay Dashboard</h1>
+      <div id="headerUserInfo">
+        <!-- User info will be updated here -->
+        <button onclick="logout()" class="px-3 py-1 bg-red-500 text-white rounded">Logga ut</button>
+      </div>
+    </header>
+    <div id="contentArea" class="p-6">
+      <!-- Default content: Dashboard overview -->
+      <h2 class="text-xl font-semibold mb-4">Välkommen till din Dashboard!</h2>
+      <p>Här kan du se en översikt över dina butiker, hantera betalningar och annat som rör ditt konto.</p>
+    </div>
+  </div>
+
+  <!-- Custom Alert -->
+  <div id="customAlert" class="custom-alert"></div>
 
   <script>
-    let currentUser = null;
-    let loginPopup = null;
+    // For production, remove simulated user data and fetch via authentication.
+    // Here we simulate a logged-in user; in production, you would retrieve this from your auth system.
+    let currentUser = null; // Will be populated from backend via localStorage / auth.
 
-    // Returns the allowed number of stores based on the user's plan.
-    function getStoreLimit(plan) {
-      switch (plan) {
-        case "Start": return 1;
-        case "Premium": return 3;
-        case "Ultimate": return 10;
-        case "Exclusive":
-        case "Owner": return Infinity;
-        default: return 1;
-      }
-    }
+    // Backend base URL (update to your production endpoint)
+    const BACKEND_URL = "https://api.webstay.se";
 
-    // Update the top-right user info area and log current user.
-    function updateUserInfo() {
-      console.log("Updating user info with:", currentUser);
-      document.getElementById("userInfo").innerHTML = `
+    // Update header with user info.
+    async function updateHeaderUserInfo() {
+      const headerUserInfo = document.getElementById("headerUserInfo");
+      headerUserInfo.innerHTML = `
         Inloggad som: <strong>${currentUser.email}</strong>
-        <button onclick="logout()" class="ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 transition">
-          Logga ut
-        </button>
+        <button onclick="logout()" class="ml-2 px-3 py-1 bg-red-500 text-white rounded">Logga ut</button>
       `;
-      const paymentsBtn = document.getElementById("paymentsNav");
-      if (currentUser.stripeAccountId && currentUser.stripeAccountId.trim() !== "") {
-        paymentsBtn.textContent = "Betalningar";
-        paymentsBtn.disabled = false;
-        paymentsBtn.onclick = openExpressDashboard;
-      } else {
-        paymentsBtn.textContent = "Betalningar (Ej tillgängligt)";
-        paymentsBtn.disabled = true;
-        paymentsBtn.onclick = null;
-      }
-    }
-
-    // Logout and reload.
-    function logout() {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("authUser");
-      location.reload();
     }
 
     // Show custom alert.
-    function showAlert(message, type = "error") {
-      const alertDiv = document.getElementById("alertMessage");
-      const bgClass = type === "error" ? "bg-red-600 border-red-800" : "bg-green-600 border-green-800";
-      alertDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg border ${bgClass} text-white`;
-      alertDiv.textContent = message;
-      alertDiv.classList.remove("hidden");
-      setTimeout(() => alertDiv.classList.add("hidden"), 5000);
+    function showAlert(message) {
+      const alertEl = document.getElementById("customAlert");
+      alertEl.textContent = message;
+      alertEl.classList.add("show");
+      setTimeout(() => alertEl.classList.remove("show"), 5000);
     }
 
-    // Show/hide waiting overlay.
-    function showWaitingScreen() { document.getElementById("waitingScreen").classList.remove("hidden"); }
-    function hideWaitingScreen() { document.getElementById("waitingScreen").classList.add("hidden"); }
-
-    // Show active plan modal.
-    function showActivePlanModal() { document.getElementById("activePlanModal").classList.remove("hidden"); }
-    function hideActivePlanModal() { document.getElementById("activePlanModal").classList.add("hidden"); }
-
-    // Open the login popup using your /auth page.
-    function openLoginPopup() {
-      loginPopup = window.open("https://webstay.se/auth", "Login", "width=500,height=600");
-      if (!loginPopup) showAlert("Popup-blocker hindrade inloggning. Vänligen tillåt popup-fönster.", "error");
-    }
-
-    // Listen for messages from the login popup.
-    window.addEventListener("message", function(event) {
-      if (event.origin !== "https://webstay.se") return;
-      const data = event.data;
-      if (data && data.authToken && data.user) {
-        localStorage.setItem("authToken", data.authToken);
-        localStorage.setItem("authUser", JSON.stringify(data.user));
-        currentUser = data.user;
-        updateUserInfo();
-        if (loginPopup) loginPopup.close();
-        hideWaitingScreen();
-        checkActivePlan();
+    // Navigation function.
+    function navigate(page) {
+      const contentArea = document.getElementById("contentArea");
+      if (page === "dashboard") {
+        contentArea.innerHTML = `
+          <h2 class="text-xl font-semibold mb-4">Dashboard Översikt</h2>
+          <p>Här ser du en översikt över dina butiker, betalningsstatus och annan viktig information.</p>
+        `;
+      } else if (page === "create") {
+        window.location.href = "/create";
+      } else if (page === "payments") {
+        contentArea.innerHTML = `
+          <h2 class="text-xl font-semibold mb-4">Betalningar</h2>
+          <p>Här kan du komma åt ditt Stripe Express Dashboard för att se din balans, utbetalningar och intäkter.</p>
+          <div id="paymentSection" class="mt-4 text-center"></div>
+        `;
+        updatePaymentSection();
       }
-    });
+    }
 
-    // On page load.
-    document.addEventListener("DOMContentLoaded", function() {
-      const storedToken = localStorage.getItem("authToken");
-      const storedUser = localStorage.getItem("authUser");
-      if (storedToken && storedUser) {
-        currentUser = JSON.parse(storedUser);
-        updateUserInfo();
-        checkActivePlan();
+    // Update payment section based on user data.
+    function updatePaymentSection() {
+      const paymentSection = document.getElementById("paymentSection");
+      paymentSection.innerHTML = "";
+      if (currentUser.stripeAccountId && currentUser.stripeAccountId.trim() !== "") {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = "Öppna Stripe Express Dashboard";
+        btn.onclick = openExpressDashboard;
+        paymentSection.appendChild(btn);
       } else {
-        showWaitingScreen();
-        openLoginPopup();
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = "Koppla Stripe-konto";
+        btn.onclick = () => { window.location.href = "/create"; };
+        paymentSection.appendChild(btn);
       }
-    });
+      // Show payment status.
+      const statusP = document.createElement("p");
+      statusP.className = (currentUser.PaymentDate && currentUser.PaymentDate.trim() !== "") 
+                           ? "text-green-600 mt-4" 
+                           : "text-yellow-600 mt-4";
+      statusP.textContent = (currentUser.PaymentDate && currentUser.PaymentDate.trim() !== "")
+        ? `Betalning: Aktiv (Betald ${new Date(currentUser.PaymentDate).toLocaleDateString("sv-SE")})`
+        : "Betalning: Ej registrerad";
+      paymentSection.appendChild(statusP);
+    }
 
-    // Check if the current user's Google ID exists in the API response.
-    async function checkActivePlan() {
+    // Logout: clear stored data.
+    function logout() {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+      showAlert("Du har loggats ut.");
+      setTimeout(() => location.reload(), 1500);
+    }
+
+    // Fetch and update currentUser from backend via /get-users.
+    async function fetchUserData() {
       try {
-        const res = await fetch("https://api.webstay.se/get-users");
-        const allRecords = await res.json();
-        const activePlanRecords = allRecords.filter(record => record.UserID === currentUser.sub);
-        console.log("Active plan records:", activePlanRecords);
-        if (activePlanRecords.length === 0) {
-          showActivePlanModal();
-          setTimeout(() => { logout(); window.location.href = "https://order.webstay.se"; }, 1000);
+        const res = await fetch(`${BACKEND_URL}/get-users`);
+        if (!res.ok) throw new Error("Kunde inte hämta användardata från backend.");
+        const users = await res.json();
+        // Assume currentUser is stored in localStorage (from your auth system)
+        let storedUser = localStorage.getItem("authUser");
+        if (!storedUser) throw new Error("Ingen användardata funnen.");
+        storedUser = JSON.parse(storedUser);
+        // Find the user by Google ID (using storedUser.sub)
+        const userRecord = users.find(u => u.UserID === storedUser.sub);
+        if (userRecord) {
+          currentUser = { ...storedUser, ...userRecord };
         } else {
-          currentUser.plan = activePlanRecords[0].PlanName || "Start";
-          const storesCreated = activePlanRecords.filter(record => record.StoreID && record.StoreID.trim() !== "");
-          displayStores(storesCreated);
+          // If no matching record is found, use stored user info.
+          currentUser = storedUser;
         }
+        await updateHeaderUserInfo();
       } catch (error) {
-        console.error("Fel vid kontroll av aktiv plan:", error);
-        showAlert("Fel vid kontroll av aktiv plan.", "error");
+        console.error("Error fetching user data:", error);
+        showAlert("Kunde inte hämta uppdaterad användardata.");
       }
     }
 
-    // Display stores; if StoreID contains commas, split and display each as separate cards.
-    function displayStores(stores) {
-      const storeList = document.getElementById("storeList");
-      storeList.innerHTML = "";
-      if (stores.length === 0) {
-        storeList.innerHTML = `<li class="p-4 bg-gray-700 rounded text-center">Inga butiker hittades.</li>`;
-      } else {
-        stores.forEach(store => {
-          let storeIDs = store.StoreID.includes(",") ? store.StoreID.split(",") : [store.StoreID];
-          storeIDs.forEach(id => {
-            id = id.trim();
-            const li = document.createElement("li");
-            li.className = "store-card p-4 bg-gray-700 rounded shadow transition-all duration-300 cursor-pointer";
-            li.onclick = () => { window.location.href = `https://dash.webstay.se/?${id}`; };
-            li.innerHTML = `
-              <div class="font-bold text-lg">Butik: ${id}</div>
-              <div class="mt-2 text-sm">
-                <span class="font-medium">Plan:</span> ${store.PlanName || "Ingen plan"}<br>
-                <span class="font-medium">Betalning:</span> ${store.PaymentDate && store.PaymentDate.trim() !== "" ? "Aktiv" : "Ej registrerad"}
-              </div>
-            `;
-            storeList.appendChild(li);
-          });
-        });
-      }
-    }
-
-    // Open Express Dashboard:
-    // Calls backend endpoint to generate a login link for the connected Stripe account
-    // and opens it in a popup window.
+    // Open Express Dashboard: fetch login link and open in new tab.
     async function openExpressDashboard() {
       if (!currentUser.stripeAccountId || currentUser.stripeAccountId.trim() === "") {
-        showAlert("Inget Stripe-konto kopplat till ditt konto.", "error");
+        showAlert("Inget Stripe-konto kopplat till ditt konto.");
         return;
       }
       try {
-        const res = await fetch(`/api/express-dashboard-login?accountId=${currentUser.stripeAccountId}`);
+        const res = await fetch(`${BACKEND_URL}/api/express-dashboard-login?accountId=${currentUser.stripeAccountId}`);
         if (!res.ok) throw new Error("Kunde inte skapa login-länk.");
         const data = await res.json();
         if (data.url) {
-          window.open(data.url, "ExpressDashboard", "width=600,height=800,scrollbars=yes,resizable=yes");
+          window.open(data.url, "_blank");
         } else {
           throw new Error("Inget URL mottaget.");
         }
       } catch (error) {
         console.error("Fel vid öppnande av Express Dashboard:", error);
-        showAlert("Fel vid öppnande av Express Dashboard.", "error");
+        showAlert("Fel vid öppnande av Express Dashboard.");
       }
     }
+
+    // On page load: check for authentication.
+    document.addEventListener("DOMContentLoaded", async function() {
+      const storedToken = localStorage.getItem("authToken");
+      const storedUser = localStorage.getItem("authUser");
+      if (storedToken && storedUser) {
+        await fetchUserData();
+      } else {
+        // If no user is stored, open the auth popup.
+        showAlert("Ingen inloggad användare hittades. Omdirigerar till inloggning...");
+        window.location.href = "https://webstay.se/auth";
+      }
+      // Load default content.
+      navigate("dashboard");
+    });
   </script>
 </body>
 </html>
