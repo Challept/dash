@@ -149,11 +149,7 @@
   <div id="customAlert" class="custom-alert"></div>
 
   <script>
-    // For production, remove simulated user data and fetch via authentication.
-    // Here we simulate a logged-in user; in production, you would retrieve this from your auth system.
     let currentUser = null; // Will be populated from backend via localStorage / auth.
-
-    // Backend base URL (update to your production endpoint)
     const BACKEND_URL = "https://api.webstay.se";
 
     // Update header with user info.
@@ -235,18 +231,11 @@
         const res = await fetch(`${BACKEND_URL}/get-users`);
         if (!res.ok) throw new Error("Kunde inte hämta användardata från backend.");
         const users = await res.json();
-        // Assume currentUser is stored in localStorage (from your auth system)
         let storedUser = localStorage.getItem("authUser");
         if (!storedUser) throw new Error("Ingen användardata funnen.");
         storedUser = JSON.parse(storedUser);
-        // Find the user by Google ID (using storedUser.sub)
         const userRecord = users.find(u => u.UserID === storedUser.sub);
-        if (userRecord) {
-          currentUser = { ...storedUser, ...userRecord };
-        } else {
-          // If no matching record is found, use stored user info.
-          currentUser = storedUser;
-        }
+        currentUser = userRecord ? { ...storedUser, ...userRecord } : storedUser;
         await updateHeaderUserInfo();
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -275,6 +264,35 @@
       }
     }
 
+    // Open authentication popup instead of redirecting the current tab.
+    function openAuthPopup() {
+      const popup = window.open("https://webstay.se/auth", "authPopup", "width=500,height=600");
+      if (!popup) {
+        showAlert("Popup blockerare aktiverad. Vänligen aktivera popups eller logga in via omdirigering.");
+        window.location.href = "https://webstay.se/auth"; // Fallback if popup is blocked.
+      } else {
+        // Monitor the popup window for closure.
+        const timer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(timer);
+            // Check if the user has been authenticated.
+            if (localStorage.getItem("authToken")) {
+              location.reload();
+            } else {
+              showAlert("Autentisering misslyckades. Försök igen.");
+            }
+          }
+        }, 1000);
+      }
+    }
+
+    // Listen for localStorage changes (e.g., from the auth popup) to update the main window.
+    window.addEventListener("storage", function(event) {
+      if (event.key === "authToken" && event.newValue) {
+        location.reload();
+      }
+    });
+
     // On page load: check for authentication.
     document.addEventListener("DOMContentLoaded", async function() {
       const storedToken = localStorage.getItem("authToken");
@@ -282,11 +300,9 @@
       if (storedToken && storedUser) {
         await fetchUserData();
       } else {
-        // If no user is stored, open the auth popup.
-        showAlert("Ingen inloggad användare hittades. Omdirigerar till inloggning...");
-        window.location.href = "https://webstay.se/auth";
+        showAlert("Ingen inloggad användare hittades. Öppnar inloggningsfönstret...");
+        openAuthPopup();
       }
-      // Load default content.
       navigate("dashboard");
     });
   </script>
