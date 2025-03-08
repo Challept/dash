@@ -151,6 +151,7 @@
   <script>
     let currentUser = null; // Will be populated from backend via localStorage / auth.
     const BACKEND_URL = "https://api.webstay.se";
+    let authPopup = null; // Keep a reference to the popup.
 
     // Update header with user info.
     async function updateHeaderUserInfo() {
@@ -266,31 +267,25 @@
 
     // Open authentication popup instead of redirecting the current tab.
     function openAuthPopup() {
-      const popup = window.open("https://auth.webstay.se", "authPopup", "width=500,height=600");
-      if (!popup) {
+      authPopup = window.open("https://auth.webstay.se", "authPopup", "width=500,height=600");
+      if (!authPopup) {
         showAlert("Popup blockerare aktiverad. Vänligen aktivera popups eller logga in via omdirigering.");
         window.location.href = "https://auth.webstay.se"; // Fallback if popup is blocked.
       } else {
-        // Monitor the popup window for authentication and closure.
-        const timer = setInterval(() => {
-          // If authenticated, close the popup and reload.
-          if (localStorage.getItem("authToken")) {
-            clearInterval(timer);
-            if (!popup.closed) {
-              popup.close();
+        // Listen for storage changes to detect when the auth token is set.
+        window.addEventListener("storage", function storageListener(event) {
+          if (event.key === "authToken" && event.newValue) {
+            if (authPopup && !authPopup.closed) {
+              authPopup.close();
             }
             location.reload();
+            window.removeEventListener("storage", storageListener);
           }
-          // If the popup was manually closed without authentication.
-          else if (popup.closed) {
-            clearInterval(timer);
-            showAlert("Autentisering misslyckades. Försök igen.");
-          }
-        }, 1000);
+        });
       }
     }
 
-    // Listen for localStorage changes (e.g., from the auth popup) to update the main window.
+    // Listen for localStorage changes in the main window.
     window.addEventListener("storage", function(event) {
       if (event.key === "authToken" && event.newValue) {
         location.reload();
