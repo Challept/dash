@@ -266,10 +266,10 @@
 
     // Open authentication popup instead of redirecting the current tab.
     function openAuthPopup() {
-      const popup = window.open("https://webstay.se/auth", "authPopup", "width=500,height=600");
+      const popup = window.open("https://auth.webstay.se", "authPopup", "width=500,height=600");
       if (!popup) {
         showAlert("Popup blockerare aktiverad. Vänligen aktivera popups eller logga in via omdirigering.");
-        window.location.href = "https://webstay.se/auth"; // Fallback if popup is blocked.
+        window.location.href = "https://auth.webstay.se"; // Fallback if popup is blocked.
       } else {
         // Monitor the popup window for closure.
         const timer = setInterval(() => {
