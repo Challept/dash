@@ -271,16 +271,20 @@
         showAlert("Popup blockerare aktiverad. Vänligen aktivera popups eller logga in via omdirigering.");
         window.location.href = "https://auth.webstay.se"; // Fallback if popup is blocked.
       } else {
-        // Monitor the popup window for closure.
+        // Monitor the popup window for authentication and closure.
         const timer = setInterval(() => {
-          if (popup.closed) {
+          // If authenticated, close the popup and reload.
+          if (localStorage.getItem("authToken")) {
             clearInterval(timer);
-            // Check if the user has been authenticated.
-            if (localStorage.getItem("authToken")) {
-              location.reload();
-            } else {
-              showAlert("Autentisering misslyckades. Försök igen.");
+            if (!popup.closed) {
+              popup.close();
             }
+            location.reload();
+          }
+          // If the popup was manually closed without authentication.
+          else if (popup.closed) {
+            clearInterval(timer);
+            showAlert("Autentisering misslyckades. Försök igen.");
           }
         }, 1000);
       }
